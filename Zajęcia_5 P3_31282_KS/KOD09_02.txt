@@ -1,0 +1,38 @@
+#include <array>
+#include <random>
+#include <iostream>
+#include <thread>
+using namespace std;
+
+int sum = 0;
+thread_local int threadSum = 0;
+void Suma(int id, const vector<int>& arr) {
+    for (auto i = id * 10; i < (id + 1) * 10; ++i) {
+        sum += arr[i];
+        threadSum += arr[i];
+    }
+}
+
+
+int main() {
+    random_device r;
+    default_random_engine re(r());
+    uniform_int_distribution<int> rand1to10(1, 10);
+
+    vector<int> arr{};
+    arr.reserve(100);
+    cout << "Array:\n";
+    for (auto i = 0; i < 100; ++i) {
+        auto val = rand1to10(re);
+        cout << val << "\t";
+        arr.push_back(val);
+    }
+
+    vector<thread> threads{};
+    for (auto i = 0; i < 10; ++i) {
+        threads.emplace_back(Suma, i, arr);
+    }
+
+    for (auto& t : threads)
+        t.join();
+}

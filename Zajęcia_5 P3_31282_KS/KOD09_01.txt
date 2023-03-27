@@ -1,0 +1,30 @@
+#include <thread>
+#include <cstdio>
+#include <windows.h>
+#include <cstdlib>
+#include <ctime>
+
+const int ARR_SIZE = 100;
+
+void fillArray(int arr[], int size) {
+    srand(time(nullptr));
+
+    for (int i = 0; i < size; i++) {
+        arr[i] = rand() % 10 + 1;
+    }
+}
+
+void printArray(int arr[], int size) {
+    for (int i = 0; i < size; i++) {
+        printf("%d ", arr[i]);
+    }
+    printf("\n");
+}
+
+int main() {
+    int arr[ARR_SIZE];
+    fillArray(arr, ARR_SIZE);
+    printArray(arr, ARR_SIZE);
+
+    return 0;
+}

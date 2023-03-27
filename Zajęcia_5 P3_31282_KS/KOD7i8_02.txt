@@ -1,0 +1,54 @@
+#include <thread>
+#include <cstdio>
+#include <windows.h>
+#include <mutex>
+#include <chrono>
+
+std::mutex counter_mutex;
+unsigned int counter = 0;
+
+void increment(std::chrono::steady_clock::time_point startTime) {
+    for (;;) {
+        counter_mutex.lock();
+        counter++;
+        counter_mutex.unlock();
+        Sleep(20);
+        if (counter > 10) {
+            auto end = std::chrono::steady_clock::now();
+            printf("Koniec increment: %d\n", std::chrono::duration_cast<std::chrono::microseconds>(end - startTime).count());
+            break;
+        }
+    }
+}
+
+void parity(std::chrono::steady_clock::time_point startTime) {
+    for (;;) {
+        counter_mutex.lock();
+        if (counter % 2) {
+            printf("%u jest nieparzyste\r\n", counter);
+        }
+        else {
+            printf("%u jest parzyste\r\n", counter);
+        }
+        counter_mutex.unlock();
+        Sleep(20);
+        if (counter > 10) {
+            auto end = std::chrono::steady_clock::now();
+            printf("Koniec parity: %d\n", std::chrono::duration_cast<std::chrono::microseconds>(end - startTime).count());
+            break;
+        }
+    }
+}
+
+int main() {
+    auto start = std::chrono::steady_clock::now();
+    std::thread inc(increment, start);
+    std::thread par(parity, start);
+
+    inc.join();
+    par.join();
+
+    printf("Done\r\n");
+
+    return 0;
+}
