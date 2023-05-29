@@ -1,0 +1,123 @@
+#include "mpi.h"
+#include <cstdio>
+#include <iostream>
+#include <cstdlib>
+#include <ctime>
+
+void mainProcess(int size, int vectorSize) {
+    srand(time(NULL));
+
+    // Obliczamy ilość danych przypadać na każdy proces
+    int dataSize = vectorSize / size;
+
+    // Alokujemy wektory o odpowiednim rozmiarze
+    unsigned int* va = new unsigned int[vectorSize];
+    unsigned int* vb = new unsigned int[vectorSize];
+    unsigned int* vc = new unsigned int[vectorSize];
+
+    // Wypełniamy wektory a i b losowymi danymi
+    for (int i = 0; i < vectorSize; i++) {
+        va[i] = rand() % 10;
+        vb[i] = rand() % 10;
+        vc[i] = 0;
+    }
+
+    // Broadcastujemy wektory a i b do pozostałych procesów
+    MPI_Bcast(va, vectorSize, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
+    MPI_Bcast(vb, vectorSize, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
+
+    // Odpalamy nasłuch
+    MPI_Request* requests = new MPI_Request[size - 1];
+    MPI_Status* statuses = new MPI_Status[size - 1];
+    for (int i = 0; i < size - 1; i++) {
+        MPI_Irecv(vc + i * dataSize, dataSize, MPI_UNSIGNED, i + 1, 0, MPI_COMM_WORLD, &requests[i]);
+    }
+    MPI_Waitall(size - 1, requests, statuses);
+
+    // Wypisujemy wyniki dla procesu głównego
+    std::cout << "Proces glowny (PID = 0):\n";
+    std::cout << "Wektor a:\n";
+    for (int i = 0; i < vectorSize; i++) {
+        std::cout << va[i] << "\t";
+    }
+    std::cout << "\nWektor b:\n";
+    for (int i = 0; i < vectorSize; i++) {
+        std::cout << vb[i] << "\t";
+    }
+    std::cout << "\nWektor c:\n";
+    for (int i = 0; i < vectorSize; i++) {
+        std::cout << vc[i] << "\t";
+    }
+    std::cout << "\n\n";
+
+    // Zwalniamy pamięć
+    delete[] va;
+    delete[] vb;
+    delete[] vc;
+    delete[] requests;
+    delete[] statuses;
+}
+
+void workerProcess(int id, int size, int vectorSize) {
+    // Obliczamy ilość danych przypadać na każdy proces
+    int dataSize = vectorSize / size;
+
+    // Alokujemy bufor na swoją część zadania
+    unsigned int* v = new unsigned int[dataSize];
+
+    // Alokujemy miejsce na wektory a i b
+    unsigned int* va = new unsigned int[vectorSize];
+    unsigned int* vb = new unsigned int[vectorSize];
+
+    // Nasłuchujemy broadcasta wektora a
+    MPI_Bcast(va, vectorSize, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
+
+    // Nasłuchujemy broadcasta wektora b
+    MPI_Bcast(vb, vectorSize, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
+
+    // Liczymy sumę
+    for (int i = 0; i < dataSize; i++) {
+        v[i] = va[id * dataSize + i] + vb[id * dataSize + i];
+    }
+
+    // Odsyłamy wynik
+    MPI_Send(v, dataSize, MPI_UNSIGNED, 0, 0, MPI_COMM_WORLD);
+
+    // Zwalniamy pamięć
+    delete[] v;
+    delete[] va;
+    delete[] vb;
+}
+
+int main(int argc, char** argv) {
+    int PID, PCOUNT;
+    int vectorSize;
+
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &PID);
+    MPI_Comm_size(MPI_COMM_WORLD, &PCOUNT);
+
+    if (PID == 0) { // Jestem procesem głównym
+        if (argc > 1) {
+            vectorSize = std::atoi(argv[1]);
+        }
+        else {
+            std::cout << "Podaj rozmiar wektora: ";
+            std::cin >> vectorSize;
+        }
+    }
+
+    // Rozsyłamy rozmiar wektora do wszystkich procesów
+    MPI_Bcast(&vectorSize, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    if (PID == 0) {
+        mainProcess(PCOUNT, vectorSize);
+    }
+    else {
+        workerProcess(PID, PCOUNT, vectorSize);
+    }
+
+    MPI_Finalize();
+
+    return 0;
+}
